@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Query Analyzer</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header class="header">
+        <h1>PDF Query Analyzer</h1>
+        <p>Upload PDFs and enter a query to find relevant citations.</p>
+    </header>
+    <main class="main-container">
+        <form id="uploadForm">
+            <h2>Upload PDF Files</h2>
+            <input type="file" name="pdfFiles" id="pdfFiles" multiple accept=".pdf">
+            <textarea id="query" name="query" placeholder="Enter your query..." rows="10"></textarea>
+            <button type="submit">Analyze</button>
+        </form>
+        <div id="results"></div>
+    </main>
+    <footer class="footer">
+        <p>&copy; 2024 PDF Query Analyzer. All rights reserved.</p>
+    </footer>
+    <script>
+        const form = document.getElementById('uploadForm');
+        const resultsDiv = document.getElementById('results');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            const formData = new FormData(form);
+            resultsDiv.innerHTML = "Processing...";
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <h3>Top Matches</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Similarity</th>
+                                    <th>PDF Path</th>
+                                    <th>Matched Line</th>
+                                    <th>Sub-query</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(row => `
+                                    <tr>
+                                        <td>${row.Similarity.toFixed(2)}</td>
+                                        <td>${row.Path}</td>
+                                        <td>${row.Line}</td>
+                                        <td>${row.Sub_query}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    const error = await response.json();
+                    resultsDiv.innerHTML = `<p style="color:red;">Error: ${error.error}</p>`;
+                }
+            } catch (err) {
+                resultsDiv.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
