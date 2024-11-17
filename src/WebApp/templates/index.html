@@ -4,44 +4,80 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Citation Tool</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="../static/styles.css">
-    
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="text-center">PDF Citation Tool</h1>
-        <form id="analyzeForm" enctype="multipart/form-data" class="mt-4">
-            <div class="form-group">
-                <label for="pdfFiles">Upload PDF Files</label>
-                <input type="file" id="pdfFiles" name="pdf_files" class="form-control" multiple required>
+        <div class="text-center">
+            <h1 class="text-primary mb-4" style="font-family: 'Google Sans', sans-serif;">AUTO-CITER (PDF Citation Tool)</h1>
+        </div>
+        <form id="analyzeForm" enctype="multipart/form-data" class="bg-light p-4 rounded shadow">
+            <div class="mb-4 d-flex">
+                <div class="flex-grow-1">
+                    <label for="pdfFiles" class="form-label fw-bold text-secondary">Upload Papers (PDF Format)</label>
+                    <input type="file" id="pdfFiles" name="pdf_files" class="form-control" multiple required>
+                </div>
+                <div class="ms-3 align-self-end">
+                    <button type="button" id="uploadButton" class="btn btn-success">Upload</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="textInput">Enter Text</label>
+            <div class="mb-4">
+                <label for="textInput" class="form-label fw-bold text-secondary">Enter Text</label>
                 <textarea id="textInput" name="text" rows="5" class="form-control" placeholder="Enter your text here..." required></textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Analyze</button>
+            <button type="submit" class="btn btn-primary btn-lg w-100">Analyze</button>
         </form>
 
-        <div id="results" class="mt-5" style="display: none;">
-            <h3>Formatted Text</h3>
-            <p id="formattedText" class="border p-3"></p>
+        <!-- Progress Section -->
+        <div id="progressSection" class="mt-5 d-none">
+            <h3 class="text-secondary">Progress</h3>
+            <div id="progressLog" class="p-3 bg-light border rounded" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="mt-5 d-none">
+            <h3 class="mt-4" style="font-family: 'Google Sans', sans-serif;">Formatted Text</h3>
+            <div id="formattedText" class="border p-3 rounded bg-light"></div>
             
-            <h3>References</h3>
-            <p id="references" class="border p-3"></p>
+            <h3 class="mt-4" style="font-family: 'Google Sans', sans-serif;">References</h3>
+            <div id="references" class="border p-3 rounded bg-light"></div>
         </div>
     </div>
 
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+
     <script>
         $(document).ready(function () {
+            const progressLog = $('#progressLog');
+            const progressSection = $('#progressSection');
+
+            // Start listening to the progress stream
+            const eventSource = new EventSource('/progress');
+            eventSource.onmessage = function (event) {
+                if (progressSection.hasClass('d-none')) {
+                    progressSection.removeClass('d-none');
+                }
+                progressLog.append(`<p>${event.data}</p>`);
+                progressLog.scrollTop(progressLog[0].scrollHeight); // Auto-scroll to the bottom
+            };
+
             $('#analyzeForm').submit(function (event) {
                 event.preventDefault(); // Prevent default form submission
                 
                 // Clear any previous results
                 $('#formattedText').text('');
                 $('#references').text('');
-                $('#results').hide();
+                $('#results').addClass('d-none');
+                progressLog.empty();
+                progressSection.addClass('d-none');
 
                 const formData = new FormData(this);
 
@@ -56,7 +92,7 @@
                         // Display the formatted text and references
                         $('#formattedText').text(response.formatted_text);
                         $('#references').text(response.references);
-                        $('#results').show(); // Show the results section
+                        $('#results').removeClass('d-none'); // Show the results section
                     },
                     error: function (error) {
                         console.error('Error:', error);
@@ -64,7 +100,67 @@
                     }
                 });
             });
+
+            // Event listener for the "Upload" button to precompute PDF embeddings
+            $('#uploadButton').click(function() {
+                const pdfFiles = $('#pdfFiles')[0].files;
+                if (pdfFiles.length === 0) {
+                    alert("Please select PDF files to upload.");
+                    return;
+                }
+
+                const formData = new FormData();
+                $.each(pdfFiles, function (index, file) {
+                    formData.append('pdf_files', file);
+                });
+
+                // Trigger the precompute_pdf_embeddings routine via an AJAX request
+                $.ajax({
+                    url: '/precompute_pdf_embeddings', // Endpoint for precomputing PDF embeddings
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                        alert('PDF embeddings precomputed successfully!');
+                    },
+                    error: function (error) {
+                        console.error('Error:', error);
+                        alert('An error occurred while uploading the PDFs.');
+                    }
+                });
+            });
         });
     </script>
+
+    <style>
+        body {
+            font-family: 'Google Sans', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+        }
+
+        form {
+            max-width: 600px;
+            margin: auto;
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        #formattedText, #references {
+            font-size: 1rem;
+            color: #333;
+        }
+
+        #progressLog {
+            font-size: 0.9rem;
+            color: #555;
+        }
+    </style>
 </body>
 </html>
