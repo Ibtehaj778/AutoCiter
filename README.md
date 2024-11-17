@@ -10,13 +10,14 @@ AutoCiter is a Flask-based tool that uses sentence transformers and cosine simil
    git clone https://github.com/Ibtehaj778/AutoCiter.git
    ```
 
-2. Install the required dependencies:
+2. Navigate to src folder
+3. Install the required dependencies:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Run the backend:
+4. Run the backend:
 
    ```bash
    python backend.py
